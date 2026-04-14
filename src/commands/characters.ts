@@ -43,7 +43,7 @@ export function createCharacterCommands(
         if (options.visibility) params.append('visibility', options.visibility)
 
         const qs = params.toString()
-        const url = `/api/v1/characters${qs ? `?${qs}` : ''}`
+        const url = `/api/v1/agents${qs ? `?${qs}` : ''}`
         const response = await apiClient.get<AgentFullListResponse>(url)
         spinner.stop()
 
@@ -87,7 +87,7 @@ export function createCharacterCommands(
       const spinner = ora('Fetching agent...').start()
 
       try {
-        const response = await apiClient.get(`/api/v1/characters/${id}`)
+        const response = await apiClient.get(`/api/v1/agents/${id}`)
         const agent = response.character || response.agent
         spinner.stop()
 
@@ -217,7 +217,7 @@ export function createCharacterCommands(
         if (options.maxTurns) body.maxTurns = options.maxTurns
         if (options.tags) body.tags = options.tags.split(',').map((s: string) => s.trim())
 
-        const response = await apiClient.post('/api/v1/characters', body)
+        const response = await apiClient.post('/api/v1/agents', body)
         spinner.succeed(chalk.green('Agent created successfully'))
 
         console.log(chalk.green(`\n  Agent created:`))
@@ -288,7 +288,7 @@ export function createCharacterCommands(
           process.exit(1)
         }
 
-        await apiClient.patch(`/api/v1/characters/${id}`, body)
+        await apiClient.patch(`/api/v1/agents/${id}`, body)
         spinner.succeed(chalk.green('Agent updated'))
         console.log(chalk.green('\n  Agent updated successfully\n'))
       } catch (error: any) {

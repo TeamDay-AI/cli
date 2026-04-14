@@ -28,7 +28,7 @@ describe('Agent Data Model v2', () => {
     // Clean up test characters
     for (const id of createdCharacterIds) {
       try {
-        await client.patch(`/api/v1/characters/${id}`, { archived: true })
+        await client.patch(`/api/v1/agents/${id}`, { archived: true })
       } catch {
         // Best-effort cleanup
       }
@@ -51,7 +51,7 @@ describe('Agent Data Model v2', () => {
     let subagentBId: string
 
     it('creates a character with v2 fields', async () => {
-      const res = await client.post('/api/v1/characters', {
+      const res = await client.post('/api/v1/agents', {
         name: testName('lead-agent'),
         role: 'Team lead that delegates to subagents',
         category: 'general',
@@ -68,7 +68,7 @@ describe('Agent Data Model v2', () => {
     })
 
     it('creates subagent characters', async () => {
-      const resA = await client.post('/api/v1/characters', {
+      const resA = await client.post('/api/v1/agents', {
         name: testName('subagent-a'),
         role: 'SEO analysis specialist',
         category: 'general',
@@ -79,7 +79,7 @@ describe('Agent Data Model v2', () => {
       subagentAId = resA.id
       createdCharacterIds.push(subagentAId)
 
-      const resB = await client.post('/api/v1/characters', {
+      const resB = await client.post('/api/v1/agents', {
         name: testName('subagent-b'),
         role: 'Content writer',
         category: 'general',
@@ -93,14 +93,14 @@ describe('Agent Data Model v2', () => {
     })
 
     it('updates parent character with subagentIds', async () => {
-      const res = await client.patch(`/api/v1/characters/${parentId}`, {
+      const res = await client.patch(`/api/v1/agents/${parentId}`, {
         subagentIds: [subagentAId, subagentBId],
       })
       expect(res.success).toBe(true)
     })
 
     it('GET returns all v2 fields correctly', async () => {
-      const res = await client.get(`/api/v1/characters/${parentId}`)
+      const res = await client.get(`/api/v1/agents/${parentId}`)
       const char = res.character
 
       expect(char.subagentIds).toEqual([subagentAId, subagentBId])
@@ -112,7 +112,7 @@ describe('Agent Data Model v2', () => {
     })
 
     it('GET subagent returns its v2 fields', async () => {
-      const res = await client.get(`/api/v1/characters/${subagentBId}`)
+      const res = await client.get(`/api/v1/agents/${subagentBId}`)
       const char = res.character
 
       expect(char.disallowedTools).toEqual(['Bash', 'Edit'])
@@ -121,7 +121,7 @@ describe('Agent Data Model v2', () => {
     })
 
     it('list endpoint includes v2 fields', async () => {
-      const res = await client.get('/api/v1/characters')
+      const res = await client.get('/api/v1/agents')
       expect(res.success).toBe(true)
 
       const parent = res.characters.find((c: any) => c.id === parentId)
@@ -133,17 +133,17 @@ describe('Agent Data Model v2', () => {
     it('updates mcpInstanceIds', async () => {
       // Use fake IDs — we just test the field round-trips correctly
       const fakeIds = ['mcp_instance_abc', 'mcp_instance_def']
-      const res = await client.patch(`/api/v1/characters/${parentId}`, {
+      const res = await client.patch(`/api/v1/agents/${parentId}`, {
         mcpInstanceIds: fakeIds,
       })
       expect(res.success).toBe(true)
 
-      const get = await client.get(`/api/v1/characters/${parentId}`)
+      const get = await client.get(`/api/v1/agents/${parentId}`)
       expect(get.character.mcpInstanceIds).toEqual(fakeIds)
     })
 
     it('can clear v2 fields with empty arrays', async () => {
-      const res = await client.patch(`/api/v1/characters/${parentId}`, {
+      const res = await client.patch(`/api/v1/agents/${parentId}`, {
         subagentIds: [],
         disallowedTools: [],
         mcpTypes: [],
@@ -151,7 +151,7 @@ describe('Agent Data Model v2', () => {
       })
       expect(res.success).toBe(true)
 
-      const get = await client.get(`/api/v1/characters/${parentId}`)
+      const get = await client.get(`/api/v1/agents/${parentId}`)
       expect(get.character.subagentIds).toEqual([])
       expect(get.character.disallowedTools).toEqual([])
       expect(get.character.mcpTypes).toEqual([])
@@ -160,7 +160,7 @@ describe('Agent Data Model v2', () => {
 
     it('rejects invalid maxTurns', async () => {
       try {
-        await client.patch(`/api/v1/characters/${parentId}`, {
+        await client.patch(`/api/v1/agents/${parentId}`, {
           maxTurns: 0, // Below minimum of 1
         })
         expect.fail('Should have rejected maxTurns=0')
@@ -172,7 +172,7 @@ describe('Agent Data Model v2', () => {
 
     it('rejects maxTurns above limit', async () => {
       try {
-        await client.patch(`/api/v1/characters/${parentId}`, {
+        await client.patch(`/api/v1/agents/${parentId}`, {
           maxTurns: 501, // Above maximum of 500
         })
         expect.fail('Should have rejected maxTurns=501')
