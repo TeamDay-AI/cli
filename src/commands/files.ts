@@ -31,15 +31,15 @@ export function createFileCommands(apiClient: APIClient, _config: ConfigManager)
         if (opts.all) qs.set('showHidden', 'true')
         const res = await apiClient.get<any>(`/api/files/browse?${qs.toString()}`)
         spinner.stop()
-        // Computer service returns { success, type: 'directory', entries: [...] } or similar
-        const entries = res?.entries || res?.files || (Array.isArray(res) ? res : [])
+        // Computer service returns { success, type: 'directory', contents: [{name, type, size, modified}] }
+        const entries = res?.contents || res?.entries || (Array.isArray(res) ? res : [])
         if (!entries.length) {
           console.log(chalk.gray('  (empty)'))
           return
         }
         for (const entry of entries) {
           const name = entry.name || entry.path || String(entry)
-          const isDir = entry.type === 'directory' || entry.isDirectory
+          const isDir = entry.type === 'directory'
           console.log(isDir ? chalk.blue(`📁 ${name}/`) : `   ${name}`)
         }
       } catch (err: any) {
