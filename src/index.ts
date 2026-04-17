@@ -21,6 +21,7 @@ import { createKeysCommands } from './commands/keys'
 import { createChatCommand, createDefaultAction } from './commands/chat'
 import { createScanCommands } from './commands/scan'
 import { createMissionCommands } from './commands/missions'
+import { createFileCommands } from './commands/files'
 
 async function main() {
   const program = new Command()
@@ -79,6 +80,7 @@ async function main() {
   program.addCommand(createChatCommand(apiClient, config))
   program.addCommand(createScanCommands(apiClient, config))
   program.addCommand(createMissionCommands(apiClient, config))
+  program.addCommand(createFileCommands(apiClient, config))
 
   // Default action: `teamday` with no args → auto-detect and chat
   program.action(createDefaultAction(apiClient, config))
