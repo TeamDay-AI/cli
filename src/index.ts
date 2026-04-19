@@ -22,6 +22,8 @@ import { createChatCommand, createDefaultAction } from './commands/chat'
 import { createScanCommands } from './commands/scan'
 import { createMissionCommands } from './commands/missions'
 import { createFileCommands } from './commands/files'
+import { createDirsCommands } from './commands/dirs'
+import { setCliOptions } from './lib/cli-options'
 
 async function main() {
   const program = new Command()
@@ -38,6 +40,9 @@ async function main() {
     .option('--no-color', 'Disable colored output')
     .option('--verbose', 'Enable verbose output')
     .option('--api-url <url>', 'API endpoint URL')
+    .option('--env <env>', 'Shortcut for common API URLs (production|local|superscale)')
+    .option('--org <id>', 'Organization ID override (falls back to logged-in org)')
+    .option('--json', 'Shortcut for --format json')
 
   // Initialize services
   const config = new ConfigManager()
@@ -47,14 +52,33 @@ async function main() {
   // Set API client on auth manager (circular dependency resolution)
   authManager.setApiClient(apiClient)
 
+  const ENV_URLS: Record<string, string> = {
+    production: 'https://cc.teamday.ai',
+    local: 'http://localhost:3000',
+    superscale: 'https://ai.superscale.com',
+  }
+
   // Apply CLI options and init API client before any command runs
   program.hook('preAction', async () => {
     const opts = program.opts()
+    if (opts.env) {
+      const url = ENV_URLS[opts.env]
+      if (!url) {
+        console.error(chalk.red(`\n❌ Unknown --env '${opts.env}'. Valid: ${Object.keys(ENV_URLS).join(', ')}\n`))
+        process.exit(1)
+      }
+      await config.set('api_url', url)
+    }
     if (opts.apiUrl) {
       await config.set('api_url', opts.apiUrl)
     }
-    if (opts.format) {
+    if (opts.json) {
+      await config.set('format', 'json')
+    } else if (opts.format) {
       await config.set('format', opts.format)
+    }
+    if (opts.org) {
+      setCliOptions({ orgOverride: opts.org })
     }
     if (opts.noColor) {
       await config.set('no_color', true)
@@ -70,7 +94,7 @@ async function main() {
   // Register command groups
   program.addCommand(createAuthCommands(authManager, apiClient, config))
   program.addCommand(createAgentCommands(apiClient, config))
-  program.addCommand(createSpaceCommands(apiClient, config))
+  program.addCommand(createSpaceCommands(apiClient, config, authManager))
   program.addCommand(createTaskCommands(apiClient, config))
   program.addCommand(createExecutionCommands(apiClient, config))
   program.addCommand(createConfigCommands(config))
@@ -81,6 +105,7 @@ async function main() {
   program.addCommand(createScanCommands(apiClient, config))
   program.addCommand(createMissionCommands(apiClient, config))
   program.addCommand(createFileCommands(apiClient, config))
+  program.addCommand(createDirsCommands(apiClient, authManager, config))
 
   // Default action: `teamday` with no args → auto-detect and chat
   program.action(createDefaultAction(apiClient, config))

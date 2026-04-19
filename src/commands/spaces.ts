@@ -13,6 +13,8 @@ import type { ConfigManager } from '../lib/config-manager'
 import { getFormatter } from '../lib/formatters'
 import { ChatSession } from '../lib/interactive'
 import type { SecretsListResponse } from '../types/api'
+import { listDirectories, resolveOrgId } from '../lib/directories'
+import type { AuthManager } from '../lib/auth-manager'
 
 /**
  * Register an add/remove resource pair for a space.
@@ -66,37 +68,44 @@ function registerResourceCommands(
 
 export function createSpaceCommands(
   apiClient: APIClient,
-  config: ConfigManager
+  config: ConfigManager,
+  authManager?: AuthManager
 ): Command {
-  const spaces = new Command('spaces').description('Manage spaces and workspaces')
+  const spaces = new Command('spaces').description('Manage spaces (v3: spaces are directories — prefer `teamday dirs`)')
 
-  // teamday spaces list
+  // teamday spaces list — v3: lists directories, not Firestore docs
   spaces
     .command('list')
-    .description('List all spaces')
+    .description('List spaces as top-level directories in the org sandbox')
+    .option('--path <path>', 'Subdirectory to list (default: org root)', '/')
     .option('--format <format>', 'Output format (table|json|yaml)')
     .action(async (options) => {
-      const spinner = ora('Fetching spaces...').start()
-
+      const spinner = ora('Listing directories...').start()
       try {
-        const response = await apiClient.get('/api/v1/spaces')
+        if (!authManager) throw new Error('Internal: AuthManager not wired into spaces command')
+        const orgId = await resolveOrgId(apiClient, authManager)
+        const entries = await listDirectories(apiClient, orgId, options.path)
         spinner.stop()
 
-        const spaceList = Array.isArray(response) ? response : response.spaces || []
-
         const format = options.format || (await config.get('format'))
-        const formatter = getFormatter(format)
-
-        if (spaceList.length === 0) {
-          console.log(chalk.yellow('\nNo spaces found\n'))
+        if (format === 'json' || format === 'yaml') {
+          console.log('\n' + getFormatter(format).format(entries) + '\n')
           return
         }
 
-        console.log('\n' + formatter.format(spaceList) + '\n')
-        console.log(chalk.gray(`Total: ${spaceList.length} space(s)\n`))
+        if (entries.length === 0) {
+          console.log(chalk.yellow('\n  No directories found\n'))
+          return
+        }
+        for (const d of entries) {
+          const icon = d.kind === 'agent' ? '🤖' : d.kind === 'space' ? '📦' : '📁'
+          const subtitle = d.config?.role || d.config?.description || (d.declared ? '' : chalk.gray('(plain folder)'))
+          console.log(`  ${icon}  ${chalk.bold(d.name)}  ${chalk.gray(d.kind)}  ${subtitle}`)
+        }
+        console.log(chalk.gray(`\n  Total: ${entries.length} directory(s)  ·  Tip: use \`teamday dirs\` for full UX\n`))
       } catch (error: any) {
-        spinner.fail(chalk.red('Failed to fetch spaces'))
-        console.error(chalk.red(`\n Error: ${error.message}\n`))
+        spinner.fail(chalk.red('Failed to list spaces'))
+        console.error(chalk.red(`\n  Error: ${error.message}\n`))
         process.exit(1)
       }
     })
