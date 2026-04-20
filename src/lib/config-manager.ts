@@ -60,14 +60,45 @@ export class ConfigManager {
   }
 
   /**
-   * Set a configuration value
+   * Set a configuration value.
+   * Accepts camelCase aliases (apiUrl → api_url, organizationId → organization)
+   * so users don't have to remember the exact snake_case key.
    */
   async set(key: string, value: any): Promise<void> {
     const config = await this.load()
 
-    // Validate key exists in schema
-    if (!(key in defaultConfig)) {
-      throw new Error(`Invalid config key: ${key}`)
+    // Canonicalize common camelCase / alias inputs to the schema keys.
+    const aliasMap: Record<string, string> = {
+      apiUrl: 'api_url',
+      apiURL: 'api_url',
+      organizationId: 'organization',
+      orgId: 'organization',
+      org: 'organization',
+      defaultSpace: 'default_space',
+      spaceId: 'default_space',
+      defaultCharacter: 'default_character',
+      defaultAgent: 'default_character',
+      agentId: 'default_character',
+      noColor: 'no_color',
+    }
+    key = aliasMap[key] ?? key
+
+    // Validate key against the full schema (interface keys), not just the
+    // defaults — `organization`, `default_space`, `default_character` are
+    // valid keys without defaults. Previously these couldn't be set at all.
+    const validKeys = new Set<string>([
+      'api_url',
+      'organization',
+      'default_space',
+      'default_character',
+      'format',
+      'no_color',
+      'timeout',
+      'verbose',
+    ])
+    if (!validKeys.has(key)) {
+      const suggestion = [...validKeys].sort().join(', ')
+      throw new Error(`Invalid config key: ${key}. Valid keys: ${suggestion}`)
     }
 
     // Type validation for specific keys

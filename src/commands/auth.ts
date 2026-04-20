@@ -16,12 +16,24 @@ export function createAuthCommands(
 ): Command {
   const auth = new Command('auth').description('Authentication commands')
 
-  // teamday auth login
+  // teamday auth login [--token <pat>] [--org <id>]
   auth
     .command('login')
-    .description('Authenticate with OAuth')
-    .action(async () => {
+    .description('Authenticate with OAuth, or pass --token <PAT> for headless setup')
+    .option('--token <token>', 'Personal Access Token (td_...) for non-interactive auth')
+    .option('--org <id>', 'Default organization ID to persist in config')
+    .action(async (options: { token?: string; org?: string }) => {
       try {
+        if (options.token) {
+          // Headless path — skip OAuth, persist PAT + optional default org.
+          // Mirrors `auth set-key` but also lets agents/scripts set org in one call.
+          await authManager.setKey(options.token)
+          if (options.org) {
+            await config.set('organization', options.org)
+            console.log(chalk.gray(`   Default organization: ${options.org}`))
+          }
+          return
+        }
         await authManager.login()
       } catch (error: any) {
         console.error(chalk.red(`\n❌ Login failed: ${error.message}\n`))
